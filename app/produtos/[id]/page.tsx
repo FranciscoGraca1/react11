@@ -15,7 +15,7 @@ export default function ProdutosPage() {
   
   // 1. Estado do Carrinho
   const [cart, setCart] = useState<Product[]>([]);
-
+ // XXX
   // Carregar dados iniciais e Carrinho do LocalStorage
   useEffect(() => {
     Promise.all([
