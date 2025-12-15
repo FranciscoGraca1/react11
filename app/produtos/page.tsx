@@ -2,115 +2,280 @@
 
 import React, { useState, useEffect } from 'react';
 import { Product } from '@/models/interfaces';
-import ProductCard from '@/components/MagiaDoJSX/ProdutoCard'; // Ajuste o caminho se necessário
+import ProductCard from '@/components/MagiaDoJSX/ProdutoCard'; 
+import Image from 'next/image'; // Necessário para a miniatura no carrinho lateral
 
 export default function ProdutosPage() {
+  // --- ESTADOS ---
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Todas");
+  const [sortOrder, setSortOrder] = useState("default");
   const [loading, setLoading] = useState(true);
-  
-  // Novo estado para os dados filtrados (Requisito da pesquisa)
   const [filteredData, setFilteredData] = useState<Product[]>([]);
+  
+  // Carrinho & Checkout
+  const [cart, setCart] = useState<Product[]>([]);
+  const [studentName, setStudentName] = useState("");
+  const [isStudent, setIsStudent] = useState(false);
+  const [coupon, setCoupon] = useState("");
+  const [isBuying, setIsBuying] = useState(false);
+  const [purchaseResult, setPurchaseResult] = useState<any>(null);
 
-  // 1. Carregar dados
+  // --- EFEITOS ---
   useEffect(() => {
+    // Carregar Produtos e Categorias
     Promise.all([
       fetch('https://deisishop.pythonanywhere.com/products').then(res => res.json()),
       fetch('https://deisishop.pythonanywhere.com/categories').then(res => res.json())
     ])
     .then(([dadosProdutos, dadosCategorias]) => {
       setProducts(dadosProdutos);
-      
-      const categoriasLimpas = dadosCategorias.map((cat: any) => {
-          if (typeof cat === 'string') return cat;
-          return cat.name || String(cat);
-      });
-      
+      const categoriasLimpas = dadosCategorias.map((cat: any) => 
+          typeof cat === 'string' ? cat : cat.name || String(cat)
+      );
       setCategories(categoriasLimpas);
       setLoading(false);
     })
-    .catch(erro => {
-      console.error("Erro ao carregar a loja:", erro);
-      setLoading(false);
-    });
+    .catch(erro => console.error("Erro:", erro));
+
+    // Carregar Carrinho
+    const savedCart = JSON.parse(localStorage.getItem('cart') || '[]');
+    setCart(savedCart);
   }, []);
 
-  // 2. useEffect para Filtragem (Requisito da pesquisa)
   useEffect(() => {
-    const novosDados = products.filter(produto => {
+    localStorage.setItem('cart', JSON.stringify(cart));
+  }, [cart]);
+
+  // Lógica de Filtro e Ordenação
+  useEffect(() => {
+    let novosDados = products.filter(produto => {
       const categoriaCorreta = selectedCategory === "Todas" || produto.category === selectedCategory;
       const pesquisaCorreta = produto.title.toLowerCase().includes(search.toLowerCase());
       return categoriaCorreta && pesquisaCorreta;
     });
-    setFilteredData(novosDados);
-  }, [search, selectedCategory, products]);
 
-  // Função de Comprar
+    novosDados = novosDados.slice().sort((a, b) => {
+      const priceA = Number(a.price);
+      const priceB = Number(b.price);
+      switch (sortOrder) {
+        case "price-asc": return priceA - priceB;
+        case "price-desc": return priceB - priceA;
+        case "name-asc": return a.title.localeCompare(b.title);
+        case "name-desc": return b.title.localeCompare(a.title);
+        default: return 0;
+      }
+    });
+
+    setFilteredData(novosDados);
+  }, [search, selectedCategory, sortOrder, products]);
+
+  // --- FUNÇÕES ---
   const addToCart = (produto: Product) => {
-    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-    cart.push(produto);
-    localStorage.setItem("cart", JSON.stringify(cart));
-    // Opcional: Feedback visual mais subtil que o alert
-    alert(`Produto adicionado: ${produto.title}`);
+    setCart((prev) => [...prev, produto]);
   };
 
-  if (loading) return <div className="text-center p-10 text-cyan-500 animate-pulse font-mono">A carregar catálogo...</div>;
+  const removeFromCart = (index: number) => {
+    setCart((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const buy = async () => {
+    if (cart.length === 0) return;
+    setIsBuying(true);
+    setPurchaseResult(null);
+
+    try {
+      const response = await fetch("https://deisishop.pythonanywhere.com/buy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          products: cart.map(p => p.id),
+          name: studentName,
+          student: isStudent,
+          coupon: coupon
+        })
+      });
+
+      if (!response.ok) throw new Error("Erro na compra");
+      const data = await response.json();
+      
+      setCart([]); 
+      setPurchaseResult(data);
+    } catch (error: any) {
+      console.error(error);
+      alert("Erro ao processar compra.");
+    } finally {
+      setIsBuying(false);
+    }
+  };
+
+  const totalCost = cart.reduce((acc, item) => acc + Number(item.price), 0).toFixed(2);
+
+  if (loading) return <div className="flex h-screen items-center justify-center text-cyan-500 animate-pulse font-mono bg-black">A carregar sistema...</div>;
 
   return (
-    <div className="w-full p-6 max-w-7xl mx-auto">
-      <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-600 mb-8 text-center drop-shadow-md uppercase tracking-widest">
-        Loja DEISI Shop
-      </h1>
+    <div className="min-h-screen bg-black text-gray-200 font-sans selection:bg-cyan-500/30">
+      
+      <div className="max-w-[1800px] mx-auto p-4 md:p-8">
+        
+        {/* CABEÇALHO */}
+        <header className="mb-10 text-center md:text-left border-b border-zinc-800 pb-6">
+          <h1 className="text-4xl md:text-5xl font-black text-white uppercase tracking-tighter">
+            DEISI <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-600">Shop</span>
+          </h1>
+          <p className="text-zinc-500 mt-2 font-mono text-sm">Hardware & Merch para Developers</p>
+        </header>
 
-      {/* Filtros e Pesquisa */}
-      <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-xl shadow-lg mb-8">
-        <div className="mb-6">
-          <input 
-            type="text"
-            placeholder="Pesquisar produto..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full p-3 rounded-lg border border-zinc-700 bg-black text-gray-200 focus:outline-none focus:border-cyan-500 transition-colors"
-          />
-        </div>
-
-        <div className="flex flex-wrap gap-2 justify-center">
-          <button
-            onClick={() => setSelectedCategory("Todas")}
-            className={`px-4 py-2 rounded-full font-medium text-sm transition-all border ${selectedCategory === "Todas" ? "bg-cyan-900/30 text-cyan-400 border-cyan-500" : "bg-zinc-800 text-zinc-400 border-zinc-700 hover:border-zinc-500"}`}
-          >
-            Todas
-          </button>
+        {/* LAYOUT PRINCIPAL: GRELHA DE 2 COLUNAS */}
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-8 items-start">
           
-          {categories.map((category, index) => (
-            <button
-              key={index}
-              onClick={() => setSelectedCategory(category)}
-              className={`px-4 py-2 rounded-full font-medium text-sm transition-all capitalize border ${selectedCategory === category ? "bg-cyan-900/30 text-cyan-400 border-cyan-500" : "bg-zinc-800 text-zinc-400 border-zinc-700 hover:border-zinc-500"}`}
-            >
-              {category}
-            </button>
-          ))}
-        </div>
-      </div>
+          {/* === COLUNA ESQUERDA: PRODUTOS (Ocupa 3 colunas em ecrãs grandes) === */}
+          <div className="xl:col-span-3 space-y-8">
+            
+            {/* BARRA DE FERRAMENTAS (Pesquisa, Filtros, Ordenação) */}
+            <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800 p-4 rounded-2xl sticky top-4 z-20 shadow-xl">
+              <div className="flex flex-col md:flex-row gap-4 mb-4">
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-3 text-zinc-500">🔍</span>
+                  <input 
+                    type="text"
+                    placeholder="Pesquisar produto..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full pl-10 p-3 rounded-xl bg-black border border-zinc-700 text-white focus:border-cyan-500 outline-none transition-all"
+                  />
+                </div>
+                <select 
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value)}
+                  className="p-3 rounded-xl bg-black border border-zinc-700 text-white focus:border-cyan-500 outline-none cursor-pointer"
+                >
+                  <option value="default">Ordenar por...</option>
+                  <option value="price-asc">Preço: Menor para Maior</option>
+                  <option value="price-desc">Preço: Maior para Menor</option>
+                  <option value="name-asc">Nome: A a Z</option>
+                </select>
+              </div>
 
-      {/* Lista de Produtos (Usa filteredData) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {filteredData.length > 0 ? (
-          filteredData.map((produto) => (
-            <ProductCard 
-              key={produto.id} 
-              produto={produto}
-              onAddToCart={addToCart} 
-            />
-          ))
-        ) : (
-          <p className="text-zinc-500 col-span-full text-center italic">
-            Nenhum produto encontrado.
-          </p>
-        )}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setSelectedCategory("Todas")}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all border ${selectedCategory === "Todas" ? "bg-cyan-500 text-black border-cyan-500" : "bg-zinc-800 text-zinc-400 border-zinc-700 hover:border-zinc-500"}`}
+                >
+                  Todas
+                </button>
+                {categories.map((cat, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all border ${selectedCategory === cat ? "bg-cyan-500 text-black border-cyan-500" : "bg-zinc-800 text-zinc-400 border-zinc-700 hover:border-zinc-500"}`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* GRELHA DE PRODUTOS */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredData.length > 0 ? (
+                filteredData.map((produto) => (
+                  <ProductCard 
+                    key={produto.id} 
+                    produto={produto}
+                    onAddToCart={addToCart} 
+                  />
+                ))
+              ) : (
+                <div className="col-span-full py-20 text-center text-zinc-600 border-2 border-dashed border-zinc-800 rounded-2xl">
+                  Sem resultados para a sua pesquisa.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* === COLUNA DIREITA: CARRINHO (Sidebar Sticky) === */}
+          <div className="xl:col-span-1">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 sticky top-4 shadow-2xl overflow-hidden">
+              <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2 border-b border-zinc-800 pb-4">
+                🛒 O teu Carrinho <span className="bg-cyan-600 text-white text-xs px-2 py-0.5 rounded-full">{cart.length}</span>
+              </h2>
+
+              {/* Lista compacta de itens no carrinho */}
+              <div className="max-h-[300px] overflow-y-auto pr-2 space-y-3 mb-6 scrollbar-thin scrollbar-thumb-zinc-700">
+                {cart.length === 0 ? (
+                  <p className="text-zinc-500 text-sm italic text-center py-4">Carrinho vazio.</p>
+                ) : (
+                  cart.map((item, index) => (
+                    <div key={`${item.id}-${index}`} className="flex items-center gap-3 bg-black/50 p-2 rounded-lg border border-zinc-800 group">
+                      <div className="relative w-12 h-12 bg-white rounded p-1 shrink-0">
+                        <Image 
+                          src={item.image.startsWith('http') ? item.image : `https://deisishop.pythonanywhere.com${item.image}`} 
+                          alt={item.title} 
+                          fill 
+                          className="object-contain" 
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-white truncate font-bold">{item.title}</p>
+                        <p className="text-xs text-green-400 font-mono">{Number(item.price).toFixed(2)} €</p>
+                      </div>
+                      <button 
+                        onClick={() => removeFromCart(index)}
+                        className="text-zinc-500 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Área de Totais e Checkout */}
+              <div className="space-y-4 pt-4 border-t border-zinc-800">
+                <div className="flex justify-between items-center">
+                  <span className="text-zinc-400 text-sm font-bold uppercase">Total</span>
+                  <span className="text-2xl font-mono text-green-400 font-bold">{totalCost} €</span>
+                </div>
+
+                {/* Formulário Compacto */}
+                <div className="space-y-3">
+                  <input type="text" placeholder="Nome" value={studentName} onChange={(e) => setStudentName(e.target.value)} className="w-full bg-black border border-zinc-700 rounded p-2 text-sm text-white focus:border-cyan-500 outline-none" />
+                  <input type="text" placeholder="Cupão" value={coupon} onChange={(e) => setCoupon(e.target.value)} className="w-full bg-black border border-zinc-700 rounded p-2 text-sm text-white focus:border-purple-500 outline-none font-mono" />
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={isStudent} onChange={(e) => setIsStudent(e.target.checked)} className="accent-cyan-500" />
+                    <span className="text-xs text-zinc-400">Sou estudante DEISI</span>
+                  </label>
+                </div>
+
+                <button 
+                  onClick={buy}
+                  disabled={isBuying || cart.length === 0}
+                  className="w-full py-3 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white font-bold rounded-lg uppercase text-sm tracking-widest shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isBuying ? "A Processar..." : "Finalizar Compra"}
+                </button>
+
+                {/* Resultado da Compra */}
+                {purchaseResult && (
+                  <div className={`p-3 rounded text-xs text-center border ${purchaseResult.error ? "bg-red-900/20 border-red-800 text-red-300" : "bg-green-900/20 border-green-800 text-green-300"}`}>
+                    {purchaseResult.error ? (
+                      <p>{purchaseResult.error}</p>
+                    ) : (
+                      <>
+                        <p className="font-bold mb-1">Sucesso!</p>
+                        <p>Ref: {purchaseResult.reference}</p>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+        </div>
       </div>
     </div>
   );

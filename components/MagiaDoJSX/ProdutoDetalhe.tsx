@@ -4,12 +4,18 @@ import { Product } from '@/models/interfaces';
 
 interface ProdutoDetalheProps {
   produto: Product;
-  onBack: () => void; // Função para voltar atrás
+  onBack: () => void;
 }
 
 export default function ProdutoDetalhe({ produto, onBack }: ProdutoDetalheProps) {
-  const imagemUrl = `https://deisishop.pythonanywhere.com${produto.image}`;
-  const precoFormatado = Number(produto.price).toFixed(2);
+  // CORREÇÃO: Verifica se a imagem já é um link absoluto antes de adicionar o domínio
+  const imagemUrl = produto.image.startsWith('http') 
+    ? produto.image 
+    : `https://deisishop.pythonanywhere.com${produto.image}`;
+
+  // Garante que o preço é um número válido
+  const precoNum = Number(produto.price);
+  const precoFormatado = isNaN(precoNum) ? "0.00" : precoNum.toFixed(2);
 
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 md:p-10 shadow-2xl max-w-4xl mx-auto">
