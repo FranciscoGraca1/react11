@@ -71,19 +71,19 @@
   },
   {
     "title": "React.js",
-    "image": "react.svg",
+    "image": "React.svg",
     "description": "Biblioteca JavaScript para interfaces modernas.",
     "rating": 5
   },
   {
     "title": "Next.js",
-    "image": "nextjs.svg",
+    "image": "Next.svg",
     "description": "Framework React com SSR, rotas e otimizações.",
     "rating": 5
   },
   {
     "title": "Vercel",
-    "image": "vercel.svg",
+    "image": "Vercel.svg",
     "description": "Plataforma de deploy otimizada para Next.js.",
     "rating": 5
   }
