@@ -42,9 +42,6 @@ export default function RootLayout({
             <Link href="/produtos" className="hover:text-cyan-400 hover:scale-105 transition-all duration-300 text-white font-bold border-b-2 border-cyan-500 pb-1">
         DEISIshop
     </Link>
-    <Link href="/categorias" className="hover:text-purple-400 hover:scale-105 transition-all duration-300 text-zinc-400">
-        Categorias
-    </Link>
     <Link href="/carrinho" className="hover:text-green-400 hover:scale-105 transition-all duration-300 font-bold border-b-2 border-transparent hover:border-green-500 pb-1">
     Carrinho
 </Link>
