@@ -1,79 +1,79 @@
 import React from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
 import { Product } from '@/models/interfaces';
 
-interface ProdutoCardProps {
+// 👇 ATENÇÃO ÀS MUDANÇAS NA INTERFACE
+interface ProductCardProps {
   produto: Product;
+  // O '?' torna as propriedades opcionais. 
+  // O cartão pode receber uma, a outra, ou nenhuma.
   onAddToCart?: (produto: Product) => void;
-  onRemoveFromCart?: (produto: Product) => void;
+  onRemoveFromCart?: () => void;
 }
 
-export default function ProdutoCard({ produto, onAddToCart, onRemoveFromCart }: ProdutoCardProps) {
-  const precoNum = Number(produto.price);
-  const precoFormatado = isNaN(precoNum) ? "0.00" : precoNum.toFixed(2);
-
-  const imagemUrl = produto.image.startsWith('http') 
+export default function ProductCard({ produto, onAddToCart, onRemoveFromCart }: ProductCardProps) {
+  
+  const imageUrl = produto.image.startsWith('http') 
     ? produto.image 
     : `https://deisishop.pythonanywhere.com${produto.image}`;
 
   return (
-    <div className="group bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden hover:border-cyan-500 hover:shadow-lg transition-all duration-300 flex flex-col h-full w-full relative">
+    <article className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden hover:border-cyan-500 transition-all group h-full flex flex-col shadow-lg">
       
-      {/* LINK GLOBAL: Cobre o cartão todo. O utilizador vai para o detalhe ao clicar em qualquer sítio vazio */}
-      <Link href={`/deisishop/produtos/${produto.id}`} className="absolute inset-0 z-0" title="Ver Detalhes do Produto" />
-
-      {/* Imagem (pointer-events-none deixa o clique passar para o Link atrás) */}
-      <div className="relative h-64 w-full bg-white p-4 z-10 pointer-events-none">
+      {/* Imagem */}
+      <div className="relative h-48 w-full bg-white p-4">
         <Image
-          src={imagemUrl}
+          src={imageUrl}
           alt={produto.title}
           fill
-          className="object-contain group-hover:scale-105 transition-transform duration-300"
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          className="object-contain group-hover:scale-110 transition-transform duration-300"
+          sizes="(max-width: 768px) 100vw, 33vw"
         />
       </div>
-      
-      {/* Informação */}
-      <div className="p-5 flex flex-col flex-1 gap-2 z-10 pointer-events-none">
-        <h3 className="text-lg font-bold text-gray-200 truncate" title={produto.title}>
+
+      {/* Conteúdo */}
+      <div className="p-4 flex flex-col flex-grow">
+        <h3 className="font-bold text-lg text-white mb-1 line-clamp-1" title={produto.title}>
           {produto.title}
         </h3>
-        <span className="text-xs font-bold uppercase tracking-wider text-zinc-500 border border-zinc-800 px-2 py-1 rounded w-fit">
+        <p className="text-zinc-400 text-xs mb-4 uppercase tracking-wider font-bold border-b border-zinc-800 pb-2">
           {produto.category}
-        </span>
+        </p>
         
-        <div className="mt-auto pt-4 border-t border-zinc-800 flex flex-col gap-3">
-          <span className="text-2xl font-mono text-green-400 font-bold">
-            {precoFormatado} €
+        <div className="mt-auto flex items-center justify-between pt-2 gap-2">
+          <span className="text-xl font-mono text-green-400 font-bold">
+            {Number(produto.price).toFixed(2)} €
           </span>
+          
+          {/* 👇 LÓGICA INTELIGENTE DOS BOTÕES 👇 */}
+          
+          {/* Se tivermos a função de REMOVER (estamos no carrinho) */}
+          {onRemoveFromCart ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemoveFromCart();
+              }}
+              className="cursor-pointer bg-red-600 hover:bg-red-500 text-white px-3 py-2 rounded-lg font-bold text-xs transition-colors shadow-lg"
+            >
+              Remover
+            </button>
+          ) : (
+            // Se NÃO tivermos remover, assumimos que é para ADICIONAR (estamos na loja)
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                // O ponto de interrogação protege caso a função não exista
+                onAddToCart && onAddToCart(produto);
+              }}
+              className="cursor-pointer bg-cyan-600 hover:bg-cyan-500 text-white px-3 py-2 rounded-lg font-bold text-sm transition-colors shadow-lg"
+            >
+              + Adicionar
+            </button>
+          )}
 
-          {/* Área Interativa (Botões) - pointer-events-auto reativa o clique nestes elementos */}
-          <div className="w-full pointer-events-auto z-20">
-            {onRemoveFromCart ? (
-               <button 
-                onClick={(e) => {
-                  e.preventDefault(); // Impede a navegação do Link global
-                  onRemoveFromCart(produto);
-                }}
-                className="w-full py-2 bg-red-900/20 text-red-400 border border-red-500/30 rounded hover:bg-red-600 hover:text-white transition-all font-bold text-xs uppercase tracking-wide"
-              >
-                Remover
-              </button>
-            ) : (
-              <button 
-                onClick={(e) => {
-                  e.preventDefault(); // Impede a navegação do Link global
-                  onAddToCart && onAddToCart(produto);
-                }}
-                className="w-full py-2 bg-cyan-900/20 text-cyan-400 border border-cyan-500/30 rounded hover:bg-cyan-500 hover:text-black transition-all font-bold text-xs uppercase tracking-wide"
-              >
-                Adicionar
-              </button>
-            )}
-          </div>
         </div>
       </div>
-    </div>
+    </article>
   );
 }

@@ -6,6 +6,8 @@ import { Product } from "@/models/interfaces";
 
 export default function CarrinhoPage() {
   const [cart, setCart] = useState<Product[]>([]);
+  // Usamos isto para garantir que só gravamos depois de carregar
+  const [isCartLoaded, setIsCartLoaded] = useState(false);
   
   // Estados do Formulário
   const [studentName, setStudentName] = useState("");
@@ -16,18 +18,27 @@ export default function CarrinhoPage() {
   const [isBuying, setIsBuying] = useState(false);
   const [purchaseResult, setPurchaseResult] = useState<any>(null);
 
+  // 1. Carregar do LocalStorage
   useEffect(() => {
     const savedCart = JSON.parse(localStorage.getItem("cart") || "[]");
     setCart(savedCart);
+    setIsCartLoaded(true); // <--- AVISAMOS QUE JÁ CARREGÁMOS
   }, []);
 
-  // Cálculo do Total (com conversão segura de string para número)
+  // 2. Gravar no LocalStorage (Sempre que o cart muda)
+  useEffect(() => {
+    if (isCartLoaded) {
+      localStorage.setItem("cart", JSON.stringify(cart));
+    }
+  }, [cart, isCartLoaded]);
+
+  // Cálculo do Total
   const total = cart.reduce((acc, item) => acc + Number(item.price), 0);
 
   const removerDoCarrinho = (indexToRemove: number) => {
+    // Apenas atualizamos o estado. O useEffect acima trata de gravar no localStorage.
     const newCart = cart.filter((_, index) => index !== indexToRemove);
     setCart(newCart);
-    localStorage.setItem("cart", JSON.stringify(newCart));
   };
 
   const comprar = async () => {
@@ -56,9 +67,8 @@ export default function CarrinhoPage() {
         throw new Error(data.error || "Erro desconhecido na compra");
       }
       
-      // Sucesso
-      localStorage.removeItem("cart");
-      setCart([]);
+      // Sucesso - Limpar carrinho
+      setCart([]); // O useEffect vai detetar isto e limpar o localStorage automaticamente
       setPurchaseResult(data);
       
     } catch (error: any) {
@@ -70,7 +80,7 @@ export default function CarrinhoPage() {
   };
 
   return (
-    <div className="w-full text-gray-200 p-4 md:p-6 max-w-6xl mx-auto">
+    <div className="w-full text-gray-200 p-4 md:p-6 max-w-6xl mx-auto min-h-screen">
       <h2 className="text-3xl font-black mb-8 text-white uppercase tracking-wider border-b border-zinc-800 pb-4">
         Checkout <span className="text-cyan-500">DEISI Shop</span>
       </h2>
@@ -109,7 +119,7 @@ export default function CarrinhoPage() {
                   </div>
                   <button 
                     onClick={() => removerDoCarrinho(index)}
-                    className="p-2 text-zinc-500 hover:text-red-500 hover:bg-red-950/30 rounded-full transition-all"
+                    className="p-2 text-zinc-500 hover:text-red-500 hover:bg-red-950/30 rounded-full transition-all cursor-pointer"
                     title="Remover"
                   >
                     ✕
@@ -161,7 +171,7 @@ export default function CarrinhoPage() {
                   type="checkbox"
                   checked={isStudent}
                   onChange={(e) => setIsStudent(e.target.checked)}
-                  className="w-5 h-5 accent-cyan-500"
+                  className="w-5 h-5 accent-cyan-500 cursor-pointer"
                 />
                 <span className="text-sm text-zinc-300 font-medium">Sou aluno do DEISI</span>
               </label>
@@ -170,7 +180,7 @@ export default function CarrinhoPage() {
               <button 
                 onClick={comprar}
                 disabled={isBuying || cart.length === 0}
-                className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white font-bold py-4 rounded-xl uppercase tracking-widest shadow-lg shadow-green-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all mt-4 transform active:scale-95"
+                className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white font-bold py-4 rounded-xl uppercase tracking-widest shadow-lg shadow-green-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all mt-4 transform active:scale-95 cursor-pointer"
               >
                 {isBuying ? "A Processar..." : "Confirmar Compra"}
               </button>

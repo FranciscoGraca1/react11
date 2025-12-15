@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { Product } from '@/models/interfaces';
 import ProductCard from '@/components/MagiaDoJSX/ProdutoCard'; 
-import Image from 'next/image'; // Necessário para a miniatura no carrinho lateral
+import Image from 'next/image';
+import ProdutoDetalhe from '@/components/MagiaDoJSX/ProdutoDetalhe';
 
 export default function ProdutosPage() {
   // --- ESTADOS ---
@@ -15,8 +16,14 @@ export default function ProdutosPage() {
   const [loading, setLoading] = useState(true);
   const [filteredData, setFilteredData] = useState<Product[]>([]);
   
+  // Estado para controlar qual produto está a ser visto
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
   // Carrinho & Checkout
   const [cart, setCart] = useState<Product[]>([]);
+  // 👇 1. A flag de controlo (já tinhas, mas agora vamos usar)
+  const [isCartLoaded, setIsCartLoaded] = useState(false);
+  
   const [studentName, setStudentName] = useState("");
   const [isStudent, setIsStudent] = useState(false);
   const [coupon, setCoupon] = useState("");
@@ -24,8 +31,9 @@ export default function ProdutosPage() {
   const [purchaseResult, setPurchaseResult] = useState<any>(null);
 
   // --- EFEITOS ---
+
+  // 1. Carregar Dados da API (Produtos e Categorias)
   useEffect(() => {
-    // Carregar Produtos e Categorias
     Promise.all([
       fetch('https://deisishop.pythonanywhere.com/products').then(res => res.json()),
       fetch('https://deisishop.pythonanywhere.com/categories').then(res => res.json())
@@ -39,15 +47,22 @@ export default function ProdutosPage() {
       setLoading(false);
     })
     .catch(erro => console.error("Erro:", erro));
-
-    // Carregar Carrinho
-    const savedCart = JSON.parse(localStorage.getItem('cart') || '[]');
-    setCart(savedCart);
   }, []);
 
+  // 👇 2. Carregar Carrinho (Separado da API para ser mais seguro)
   useEffect(() => {
-    localStorage.setItem('cart', JSON.stringify(cart));
-  }, [cart]);
+    const savedCart = JSON.parse(localStorage.getItem('cart') || '[]');
+    setCart(savedCart);
+    setIsCartLoaded(true); // <--- AVISAMOS QUE JÁ LEMOS O LOCALSTORAGE
+  }, []);
+
+  // 👇 3. Gravar Carrinho (Com proteção)
+  useEffect(() => {
+    // Só grava se já tivermos a certeza que carregámos os dados iniciais
+    if (isCartLoaded) {
+      localStorage.setItem('cart', JSON.stringify(cart));
+    }
+  }, [cart, isCartLoaded]);
 
   // Lógica de Filtro e Ordenação
   useEffect(() => {
@@ -115,6 +130,20 @@ export default function ProdutosPage() {
 
   if (loading) return <div className="flex h-screen items-center justify-center text-cyan-500 animate-pulse font-mono bg-black">A carregar sistema...</div>;
 
+  // Renderização Condicional - Detalhe do Produto
+  if (selectedProduct) {
+    return (
+      <div className="min-h-screen bg-black text-gray-200 font-sans p-8 flex items-center justify-center">
+        <ProdutoDetalhe 
+          produto={selectedProduct} 
+          onBack={() => setSelectedProduct(null)} 
+          onAddToCart={addToCart} 
+        />
+      </div>
+    );
+  }
+
+  // Página Principal
   return (
     <div className="min-h-screen bg-black text-gray-200 font-sans selection:bg-cyan-500/30">
       
@@ -128,15 +157,15 @@ export default function ProdutosPage() {
           <p className="text-zinc-500 mt-2 font-mono text-sm">Hardware & Merch para Developers</p>
         </header>
 
-        {/* LAYOUT PRINCIPAL: GRELHA DE 2 COLUNAS */}
+        {/* LAYOUT PRINCIPAL */}
         <div className="grid grid-cols-1 xl:grid-cols-4 gap-8 items-start">
           
-          {/* === COLUNA ESQUERDA: PRODUTOS (Ocupa 3 colunas em ecrãs grandes) === */}
+          {/* === COLUNA ESQUERDA: PRODUTOS === */}
           <div className="xl:col-span-3 space-y-8">
             
-            {/* BARRA DE FERRAMENTAS (Pesquisa, Filtros, Ordenação) */}
+            {/* BARRA DE FERRAMENTAS */}
             <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800 p-4 rounded-2xl sticky top-4 z-20 shadow-xl">
-              <div className="flex flex-col md:flex-row gap-4 mb-4">
+               <div className="flex flex-col md:flex-row gap-4 mb-4">
                 <div className="relative flex-1">
                   <span className="absolute left-3 top-3 text-zinc-500">🔍</span>
                   <input 
@@ -182,11 +211,18 @@ export default function ProdutosPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredData.length > 0 ? (
                 filteredData.map((produto) => (
-                  <ProductCard 
+                  <div 
                     key={produto.id} 
-                    produto={produto}
-                    onAddToCart={addToCart} 
-                  />
+                    onClick={() => setSelectedProduct(produto)}
+                    className="cursor-pointer hover:scale-[1.02] transition-transform duration-200"
+                  >
+                    <ProductCard 
+                      produto={produto}
+                      onAddToCart={(p) => {
+                        addToCart(p);
+                      }} 
+                    />
+                  </div>
                 ))
               ) : (
                 <div className="col-span-full py-20 text-center text-zinc-600 border-2 border-dashed border-zinc-800 rounded-2xl">
@@ -196,14 +232,13 @@ export default function ProdutosPage() {
             </div>
           </div>
 
-          {/* === COLUNA DIREITA: CARRINHO (Sidebar Sticky) === */}
+          {/* === COLUNA DIREITA: CARRINHO === */}
           <div className="xl:col-span-1">
             <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 sticky top-4 shadow-2xl overflow-hidden">
               <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2 border-b border-zinc-800 pb-4">
                 🛒 O teu Carrinho <span className="bg-cyan-600 text-white text-xs px-2 py-0.5 rounded-full">{cart.length}</span>
               </h2>
 
-              {/* Lista compacta de itens no carrinho */}
               <div className="max-h-[300px] overflow-y-auto pr-2 space-y-3 mb-6 scrollbar-thin scrollbar-thumb-zinc-700">
                 {cart.length === 0 ? (
                   <p className="text-zinc-500 text-sm italic text-center py-4">Carrinho vazio.</p>
@@ -233,14 +268,12 @@ export default function ProdutosPage() {
                 )}
               </div>
 
-              {/* Área de Totais e Checkout */}
               <div className="space-y-4 pt-4 border-t border-zinc-800">
                 <div className="flex justify-between items-center">
                   <span className="text-zinc-400 text-sm font-bold uppercase">Total</span>
                   <span className="text-2xl font-mono text-green-400 font-bold">{totalCost} €</span>
                 </div>
 
-                {/* Formulário Compacto */}
                 <div className="space-y-3">
                   <input type="text" placeholder="Nome" value={studentName} onChange={(e) => setStudentName(e.target.value)} className="w-full bg-black border border-zinc-700 rounded p-2 text-sm text-white focus:border-cyan-500 outline-none" />
                   <input type="text" placeholder="Cupão" value={coupon} onChange={(e) => setCoupon(e.target.value)} className="w-full bg-black border border-zinc-700 rounded p-2 text-sm text-white focus:border-purple-500 outline-none font-mono" />
@@ -258,7 +291,6 @@ export default function ProdutosPage() {
                   {isBuying ? "A Processar..." : "Finalizar Compra"}
                 </button>
 
-                {/* Resultado da Compra */}
                 {purchaseResult && (
                   <div className={`p-3 rounded text-xs text-center border ${purchaseResult.error ? "bg-red-900/20 border-red-800 text-red-300" : "bg-green-900/20 border-green-800 text-green-300"}`}>
                     {purchaseResult.error ? (
@@ -274,7 +306,6 @@ export default function ProdutosPage() {
               </div>
             </div>
           </div>
-
         </div>
       </div>
     </div>
