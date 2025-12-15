@@ -1,5 +1,5 @@
 import Image from 'next/image';
-import tecnologias from '@/app/tecnologias.json';
+import tecnologias from '@/app/data/tecnologias.json';
 
 type Tecnologia = {
   title: string;
