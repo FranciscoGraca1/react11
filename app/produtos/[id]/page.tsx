@@ -1,93 +1,199 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation'; // Para ler o ID do URL
-import Image from 'next/image';
-import Link from 'next/link';
 import { Product } from '@/models/interfaces';
-import { Button } from "@/components/ui/button";
+import ProductCard from '@/components/MagiaDoJSX/ProdutoCard'; 
 
-export default function ProdutoDetalhePage() {
-  const params = useParams();
-  const id = params.id; // Este é o ID que vem do URL (ex: 5)
-  
-  const [produto, setProduto] = useState<Product | null>(null);
+export default function ProdutosPage() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [search, setSearch] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("Todas");
+  const [sortOrder, setSortOrder] = useState("default");
   const [loading, setLoading] = useState(true);
+  const [filteredData, setFilteredData] = useState<Product[]>([]);
+  
+  // 1. Estado do Carrinho
+  const [cart, setCart] = useState<Product[]>([]);
 
+  // Carregar dados iniciais e Carrinho do LocalStorage
   useEffect(() => {
-    // Buscar todos os produtos e encontrar o que tem o ID correto
-    fetch('https://deisishop.pythonanywhere.com/products')
-      .then((res) => res.json())
-      .then((data: Product[]) => {
-        const encontrado = data.find((p) => p.id === Number(id));
-        setProduto(encontrado || null);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        setLoading(false);
-      });
-  }, [id]);
+    Promise.all([
+      fetch('https://deisishop.pythonanywhere.com/products').then(res => res.json()),
+      fetch('https://deisishop.pythonanywhere.com/categories').then(res => res.json())
+    ])
+    .then(([dadosProdutos, dadosCategorias]) => {
+      setProducts(dadosProdutos);
+      const categoriasLimpas = dadosCategorias.map((cat: any) => 
+          typeof cat === 'string' ? cat : cat.name || String(cat)
+      );
+      setCategories(categoriasLimpas);
+      setLoading(false);
+    })
+    .catch(erro => console.error("Erro:", erro));
 
-  const addToCart = () => {
-    alert(`Adicionado ao carrinho: ${produto?.title}`);
+    // Carregar carrinho salvo
+    const savedCart = JSON.parse(localStorage.getItem('cart') || '[]');
+    setCart(savedCart);
+  }, []);
+
+  // 2. Guardar Carrinho no LocalStorage sempre que mudar
+  useEffect(() => {
+    localStorage.setItem('cart', JSON.stringify(cart));
+  }, [cart]);
+
+  // Filtragem e Ordenação
+  useEffect(() => {
+    let novosDados = products.filter(produto => {
+      const categoriaCorreta = selectedCategory === "Todas" || produto.category === selectedCategory;
+      const pesquisaCorreta = produto.title.toLowerCase().includes(search.toLowerCase());
+      return categoriaCorreta && pesquisaCorreta;
+    });
+
+    novosDados = novosDados.slice().sort((a, b) => {
+      switch (sortOrder) {
+        case "price-asc": return a.price - b.price;
+        case "price-desc": return b.price - a.price;
+        case "name-asc": return a.title.localeCompare(b.title);
+        case "name-desc": return b.title.localeCompare(a.title);
+        default: return 0;
+      }
+    });
+
+    setFilteredData(novosDados);
+  }, [search, selectedCategory, sortOrder, products]);
+
+  // Função Adicionar ao Carrinho
+  const addToCart = (produto: Product) => {
+    setCart((prevCart) => [...prevCart, produto]);
   };
 
-  if (loading) return <div className="p-10 text-center text-white">A carregar detalhes...</div>;
-  if (!produto) return <div className="p-10 text-center text-red-500">Produto não encontrado.</div>;
+  // Função Remover do Carrinho (remove pelo índice para permitir duplicados se necessário)
+  const removeFromCart = (indexToRemove: number) => {
+    setCart((prevCart) => prevCart.filter((_, index) => index !== indexToRemove));
+  };
+
+  // Função Comprar (Limpa o carrinho - Simulação)
+  const buy = () => {
+    fetch('https://deisishop.pythonanywhere.com/buy', {
+      method: 'POST',
+      body: JSON.stringify({ products: cart.map(p => p.id), name: "", studentNumber: "" }),
+      headers: { "Content-type": "application/json; charset=UTF-8" }
+    })
+    .then(response => {
+        if(response.ok) {
+            alert("Compra realizada com sucesso!");
+            setCart([]); // Limpa o carrinho
+        } else {
+            alert("Erro na compra");
+        }
+    })
+    .catch(err => console.log(err));
+  };
+
+  // Cálculo do Custo Total
+  const totalCost = cart.reduce((total, item) => total + Number(item.price), 0).toFixed(2);
+
+  if (loading) return <div className="text-center p-10 text-cyan-500 animate-pulse font-mono">A carregar catálogo...</div>;
 
   return (
-    <div className="container mx-auto p-6 min-h-screen flex items-center justify-center">
-       <div className="bg-white p-8 rounded-xl shadow-2xl flex flex-col md:flex-row max-w-4xl w-full gap-8">
-          
-          {/* Lado Esquerdo: Imagem */}
-          <div className="w-full md:w-1/2 relative h-96 bg-gray-100 rounded-lg flex items-center justify-center p-4">
-             <Image 
-                // Link absoluto com o domínio da API
-                src={`https://deisishop.pythonanywhere.com${produto.image}`} 
-                alt={produto.title} 
-                fill 
-                className="object-contain hover:scale-110 transition-transform duration-500"
-             />
-          </div>
+    <div className="w-full p-6 max-w-7xl mx-auto flex flex-col gap-8">
+      <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-600 text-center drop-shadow-md uppercase tracking-widest">
+        Loja DEISI Shop
+      </h1>
 
-          {/* Lado Direito: Informações */}
-          <div className="w-full md:w-1/2 flex flex-col justify-between">
-             <div>
-                <span className="text-sm font-bold text-blue-600 uppercase tracking-wide">
-                    {produto.category}
-                </span>
-                <h1 className="text-3xl font-bold mb-4 mt-2 text-gray-900">
-                    {produto.title}
-                </h1>
-                
-                {/* Detalhes que só aparecem nesta página */}
-                <p className="text-gray-600 mb-6 leading-relaxed text-lg">
-                    {produto.description}
-                </p>
-                
-                <div className="flex items-center gap-2 mb-4 bg-gray-50 p-2 rounded w-fit">
-                    <span className="text-yellow-500 text-xl">★</span>
-                    <span className="font-bold text-gray-800 text-lg">{produto.rating.rate}</span>
-                    <span className="text-gray-400 text-sm">({produto.rating.count} avaliações)</span>
+      {/* Secção do Carrinho */}
+      <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-xl shadow-lg">
+        <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold text-white uppercase tracking-wider">Carrinho ({cart.length})</h2>
+            <div className="text-right">
+                <span className="text-zinc-400 text-sm">Total a Pagar:</span>
+                <p className="text-3xl font-mono text-green-400 font-bold">{totalCost} €</p>
+            </div>
+        </div>
+        
+        {cart.length > 0 ? (
+            <>
+                <div className="flex gap-4 overflow-x-auto pb-4 mb-4">
+                    {cart.map((produto, index) => (
+                        <div key={`${produto.id}-${index}`} className="min-w-[250px] w-[250px]">
+                            <ProductCard 
+                                produto={produto} 
+                                onRemoveFromCart={() => removeFromCart(index)} 
+                            />
+                        </div>
+                    ))}
                 </div>
-             </div>
+                <button 
+                    onClick={buy} 
+                    className="w-full py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded-lg uppercase tracking-wide transition-all"
+                >
+                    Comprar Tudo
+                </button>
+            </>
+        ) : (
+            <p className="text-zinc-500 italic">O seu carrinho está vazio.</p>
+        )}
+      </div>
 
-             <div className="flex flex-col gap-4 mt-6 pt-6 border-t border-gray-100">
-                <span className="text-4xl font-bold text-green-600 mb-2">
-                    {Number(produto.price).toFixed(2)} €
-                </span>
-                
-                <Button onClick={addToCart} size="lg" className="w-full text-lg shadow-lg">
-                    Adicionar ao Carrinho
-                </Button>
-                
-                <Button variant="outline" asChild className="w-full">
-                    <Link href="/produtos">Voltar à Loja</Link>
-                </Button>
-             </div>
-          </div>
-       </div>
+      {/* Filtros e Pesquisa */}
+      <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-xl shadow-lg flex flex-col gap-6">
+        <div className="flex flex-col md:flex-row gap-4">
+          <input 
+            type="text"
+            placeholder="Pesquisar produto..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="flex-1 p-3 rounded-lg border border-zinc-700 bg-black text-gray-200 focus:outline-none focus:border-cyan-500 transition-colors"
+          />
+          <select 
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value)}
+            className="p-3 rounded-lg border border-zinc-700 bg-black text-gray-200 focus:outline-none focus:border-cyan-500 transition-colors md:w-64"
+          >
+            <option value="default">Ordenar por...</option>
+            <option value="price-asc">Preço: Menor para Maior</option>
+            <option value="price-desc">Preço: Maior para Menor</option>
+            <option value="name-asc">Nome: A a Z</option>
+            <option value="name-desc">Nome: Z a A</option>
+          </select>
+        </div>
+
+        <div className="flex flex-wrap gap-2 justify-center">
+          <button
+            onClick={() => setSelectedCategory("Todas")}
+            className={`px-4 py-2 rounded-full font-medium text-sm transition-all border ${selectedCategory === "Todas" ? "bg-cyan-900/30 text-cyan-400 border-cyan-500" : "bg-zinc-800 text-zinc-400 border-zinc-700 hover:border-zinc-500"}`}
+          >
+            Todas
+          </button>
+          {categories.map((category, index) => (
+            <button
+              key={index}
+              onClick={() => setSelectedCategory(category)}
+              className={`px-4 py-2 rounded-full font-medium text-sm transition-all capitalize border ${selectedCategory === category ? "bg-cyan-900/30 text-cyan-400 border-cyan-500" : "bg-zinc-800 text-zinc-400 border-zinc-700 hover:border-zinc-500"}`}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Lista de Produtos Disponíveis */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        {filteredData.length > 0 ? (
+          filteredData.map((produto) => (
+            <ProductCard 
+              key={produto.id} 
+              produto={produto}
+              onAddToCart={addToCart} 
+            />
+          ))
+        ) : (
+          <p className="text-zinc-500 col-span-full text-center italic">
+            Nenhum produto encontrado.
+          </p>
+        )}
+      </div>
     </div>
   );
 }
