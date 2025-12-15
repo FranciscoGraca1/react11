@@ -5,10 +5,10 @@ import { Product } from '@/models/interfaces';
 interface ProdutoDetalheProps {
   produto: Product;
   onBack: () => void;
+  onAddToCart: (produto: Product) => void;
 }
 
-export default function ProdutoDetalhe({ produto, onBack }: ProdutoDetalheProps) {
-  // CORREÇÃO: Verifica se a imagem já é um link absoluto antes de adicionar o domínio
+export default function ProdutoDetalhe({ produto, onBack, onAddToCart }: ProdutoDetalheProps) {  
   const imagemUrl = produto.image.startsWith('http') 
     ? produto.image 
     : `https://deisishop.pythonanywhere.com${produto.image}`;
@@ -69,8 +69,11 @@ export default function ProdutoDetalhe({ produto, onBack }: ProdutoDetalheProps)
               {precoFormatado} €
             </span>
             
-            <button className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-white font-bold uppercase tracking-widest rounded-lg shadow-[0_0_20px_rgba(8,145,178,0.4)] hover:shadow-[0_0_30px_rgba(8,145,178,0.6)] transition-all transform hover:-translate-y-1">
+            <button 
+            onClick={() => onAddToCart(produto)}
+            className="cursor-pointer w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-white font-bold uppercase tracking-widest rounded-lg shadow-[0_0_20px_rgba(8,145,178,0.4)] hover:shadow-[0_0_30px_rgba(8,145,178,0.6)] transition-all transform hover:-translate-y-1">
               Adicionar ao Carrinho
+              
             </button>
           </div>
         </div>
