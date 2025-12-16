@@ -5,6 +5,7 @@ import { Product } from '@/models/interfaces';
 import ProductCard from '@/components/MagiaDoJSX/ProdutoCard'; 
 import Image from 'next/image';
 import ProdutoDetalhe from '@/components/MagiaDoJSX/ProdutoDetalhe';
+import HistoricoProdutos from '@/components/MagiaDoJSX/HistoricoDeProdutos'; // <--- IMPORTADO
 
 export default function ProdutosPage() {
   // --- ESTADOS ---
@@ -16,23 +17,26 @@ export default function ProdutosPage() {
   const [loading, setLoading] = useState(true);
   const [filteredData, setFilteredData] = useState<Product[]>([]);
   
-  // Estado para controlar qual produto está a ser visto
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
-  // Carrinho & Checkout
+  // Carrinho
   const [cart, setCart] = useState<Product[]>([]);
-  // 👇 1. A flag de controlo (já tinhas, mas agora vamos usar)
   const [isCartLoaded, setIsCartLoaded] = useState(false);
   
+  // Checkout
   const [studentName, setStudentName] = useState("");
   const [isStudent, setIsStudent] = useState(false);
   const [coupon, setCoupon] = useState("");
   const [isBuying, setIsBuying] = useState(false);
   const [purchaseResult, setPurchaseResult] = useState<any>(null);
 
+  // --- NOVOS ESTADOS: Favoritos e Histórico ---
+  const [favorites, setFavorites] = useState<number[]>([]);
+  const [history, setHistory] = useState<Product[]>([]);
+
   // --- EFEITOS ---
 
-  // 1. Carregar Dados da API (Produtos e Categorias)
+  // 1. Carregar API
   useEffect(() => {
     Promise.all([
       fetch('https://deisishop.pythonanywhere.com/products').then(res => res.json()),
@@ -49,22 +53,30 @@ export default function ProdutosPage() {
     .catch(erro => console.error("Erro:", erro));
   }, []);
 
-  // 👇 2. Carregar Carrinho (Separado da API para ser mais seguro)
+  // 2. Carregar Carrinho, Favoritos e Histórico do LocalStorage
   useEffect(() => {
+    // Carrinho
     const savedCart = JSON.parse(localStorage.getItem('cart') || '[]');
     setCart(savedCart);
-    setIsCartLoaded(true); // <--- AVISAMOS QUE JÁ LEMOS O LOCALSTORAGE
+    setIsCartLoaded(true);
+
+    // Favoritos
+    const savedFavs = JSON.parse(localStorage.getItem('favorites') || '[]');
+    setFavorites(savedFavs);
+
+    // Histórico
+    const savedHistory = JSON.parse(localStorage.getItem('history') || '[]');
+    setHistory(savedHistory);
   }, []);
 
-  // 👇 3. Gravar Carrinho (Com proteção)
+  // 3. Gravar Carrinho
   useEffect(() => {
-    // Só grava se já tivermos a certeza que carregámos os dados iniciais
     if (isCartLoaded) {
       localStorage.setItem('cart', JSON.stringify(cart));
     }
   }, [cart, isCartLoaded]);
 
-  // Lógica de Filtro e Ordenação
+  // Lógica de Filtro
   useEffect(() => {
     let novosDados = products.filter(produto => {
       const categoriaCorreta = selectedCategory === "Todas" || produto.category === selectedCategory;
@@ -88,6 +100,29 @@ export default function ProdutosPage() {
   }, [search, selectedCategory, sortOrder, products]);
 
   // --- FUNÇÕES ---
+
+  // Função para gerir favoritos
+  const toggleFavorite = (id: number) => {
+    let newFavs;
+    if (favorites.includes(id)) {
+      newFavs = favorites.filter(favId => favId !== id);
+    } else {
+      newFavs = [...favorites, id];
+    }
+    setFavorites(newFavs);
+    localStorage.setItem('favorites', JSON.stringify(newFavs));
+  };
+
+  // Função para adicionar ao histórico (quando seleciona produto)
+  const selectAndAddToHistory = (produto: Product) => {
+    setSelectedProduct(produto);
+    
+    // Filtra se já existe para não duplicar, adiciona no início, mantém apenas 5
+    const newHistory = [produto, ...history.filter(p => p.id !== produto.id)].slice(0, 5);
+    setHistory(newHistory);
+    localStorage.setItem('history', JSON.stringify(newHistory));
+  };
+
   const addToCart = (produto: Product) => {
     setCart((prev) => [...prev, produto]);
   };
@@ -137,7 +172,9 @@ export default function ProdutosPage() {
         <ProdutoDetalhe 
           produto={selectedProduct} 
           onBack={() => setSelectedProduct(null)} 
-          onAddToCart={addToCart} 
+          onAddToCart={addToCart}
+          isFavorite={favorites.includes(selectedProduct.id)}
+          onToggleFavorite={toggleFavorite}
         />
       </div>
     );
@@ -150,12 +187,18 @@ export default function ProdutosPage() {
       <div className="max-w-[1800px] mx-auto p-4 md:p-8">
         
         {/* CABEÇALHO */}
-        <header className="mb-10 text-center md:text-left border-b border-zinc-800 pb-6">
+        <header className="mb-6 text-center md:text-left pb-6 border-b border-zinc-800">
           <h1 className="text-4xl md:text-5xl font-black text-white uppercase tracking-tighter">
             DEISI <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-600">Shop</span>
           </h1>
           <p className="text-zinc-500 mt-2 font-mono text-sm">Hardware & Merch para Developers</p>
         </header>
+
+        {/* HISTÓRICO DE PRODUTOS */}
+        <HistoricoProdutos 
+          historico={history} 
+          onSelectProduct={selectAndAddToHistory} 
+        />
 
         {/* LAYOUT PRINCIPAL */}
         <div className="grid grid-cols-1 xl:grid-cols-4 gap-8 items-start">
@@ -213,11 +256,13 @@ export default function ProdutosPage() {
                 filteredData.map((produto) => (
                   <div 
                     key={produto.id} 
-                    onClick={() => setSelectedProduct(produto)}
+                    onClick={() => selectAndAddToHistory(produto)}
                     className="cursor-pointer hover:scale-[1.02] transition-transform duration-200"
                   >
                     <ProductCard 
                       produto={produto}
+                      isFavorite={favorites.includes(produto.id)}
+                      onToggleFavorite={toggleFavorite}
                       onAddToCart={(p) => {
                         addToCart(p);
                       }} 

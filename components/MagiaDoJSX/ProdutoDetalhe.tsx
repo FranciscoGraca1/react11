@@ -6,14 +6,22 @@ interface ProdutoDetalheProps {
   produto: Product;
   onBack: () => void;
   onAddToCart: (produto: Product) => void;
+  isFavorite: boolean;                 // <--- NOVA PROP
+  onToggleFavorite: (id: number) => void; // <--- NOVA PROP
 }
 
-export default function ProdutoDetalhe({ produto, onBack, onAddToCart }: ProdutoDetalheProps) {  
+export default function ProdutoDetalhe({ 
+  produto, 
+  onBack, 
+  onAddToCart,
+  isFavorite,
+  onToggleFavorite
+}: ProdutoDetalheProps) {  
+  
   const imagemUrl = produto.image.startsWith('http') 
     ? produto.image 
     : `https://deisishop.pythonanywhere.com${produto.image}`;
 
-  // Garante que o preço é um número válido
   const precoNum = Number(produto.price);
   const precoFormatado = isNaN(precoNum) ? "0.00" : precoNum.toFixed(2);
 
@@ -42,9 +50,24 @@ export default function ProdutoDetalhe({ produto, onBack, onAddToCart }: Produto
         {/* Coluna Informação */}
         <div className="flex flex-col gap-6">
           <div>
-            <span className="text-cyan-500 text-xs font-bold uppercase tracking-widest border border-cyan-500/30 px-2 py-1 rounded bg-cyan-950/30">
-              {produto.category}
-            </span>
+            <div className="flex justify-between items-start">
+              <span className="text-cyan-500 text-xs font-bold uppercase tracking-widest border border-cyan-500/30 px-2 py-1 rounded bg-cyan-950/30">
+                {produto.category}
+              </span>
+              
+              {/* Botão de Favorito no Detalhe */}
+              <button 
+                onClick={() => onToggleFavorite(produto.id)}
+                className="p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 transition-colors"
+              >
+                {isFavorite ? (
+            <h3> ❤️ </h3>
+          ) : (
+            <h3>🤍</h3>
+)}
+              </button>
+            </div>
+
             <h1 className="text-3xl md:text-4xl font-black text-white mt-4 leading-tight">
               {produto.title}
             </h1>
@@ -73,7 +96,6 @@ export default function ProdutoDetalhe({ produto, onBack, onAddToCart }: Produto
             onClick={() => onAddToCart(produto)}
             className="cursor-pointer w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-white font-bold uppercase tracking-widest rounded-lg shadow-[0_0_20px_rgba(8,145,178,0.4)] hover:shadow-[0_0_30px_rgba(8,145,178,0.6)] transition-all transform hover:-translate-y-1">
               Adicionar ao Carrinho
-              
             </button>
           </div>
         </div>

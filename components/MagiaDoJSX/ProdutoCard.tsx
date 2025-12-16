@@ -2,24 +2,46 @@ import React from 'react';
 import Image from 'next/image';
 import { Product } from '@/models/interfaces';
 
-// 👇 ATENÇÃO ÀS MUDANÇAS NA INTERFACE
 interface ProductCardProps {
   produto: Product;
-  // O '?' torna as propriedades opcionais. 
-  // O cartão pode receber uma, a outra, ou nenhuma.
+  isFavorite: boolean;                 // <--- NOVA PROP
+  onToggleFavorite: (id: number) => void; // <--- NOVA PROP
   onAddToCart?: (produto: Product) => void;
   onRemoveFromCart?: () => void;
 }
 
-export default function ProductCard({ produto, onAddToCart, onRemoveFromCart }: ProductCardProps) {
+export default function ProductCard({ 
+  produto, 
+  isFavorite,
+  onToggleFavorite,
+  onAddToCart, 
+  onRemoveFromCart 
+}: ProductCardProps) {
   
   const imageUrl = produto.image.startsWith('http') 
     ? produto.image 
     : `https://deisishop.pythonanywhere.com${produto.image}`;
 
   return (
-    <article className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden hover:border-cyan-500 transition-all group h-full flex flex-col shadow-lg">
+    <article className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden hover:border-cyan-500 transition-all group h-full flex flex-col shadow-lg relative">
       
+      {/* coração */}
+      {!onRemoveFromCart && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleFavorite(produto.id);
+          }}
+          className="absolute top-2 right-2 z-10 p-2 rounded-full bg-black/50 hover:bg-black transition-colors"
+        >
+          {isFavorite ? (
+            <h3> ❤️ </h3>
+          ) : (
+            <h3>🤍</h3>
+          )}
+        </button>
+      )}
+
       {/* Imagem */}
       <div className="relative h-48 w-full bg-white p-4">
         <Image
@@ -45,9 +67,6 @@ export default function ProductCard({ produto, onAddToCart, onRemoveFromCart }: 
             {Number(produto.price).toFixed(2)} €
           </span>
           
-          {/* 👇 LÓGICA INTELIGENTE DOS BOTÕES 👇 */}
-          
-          {/* Se tivermos a função de REMOVER (estamos no carrinho) */}
           {onRemoveFromCart ? (
             <button
               onClick={(e) => {
@@ -59,11 +78,9 @@ export default function ProductCard({ produto, onAddToCart, onRemoveFromCart }: 
               Remover
             </button>
           ) : (
-            // Se NÃO tivermos remover, assumimos que é para ADICIONAR (estamos na loja)
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                // O ponto de interrogação protege caso a função não exista
                 onAddToCart && onAddToCart(produto);
               }}
               className="cursor-pointer bg-cyan-600 hover:bg-cyan-500 text-white px-3 py-2 rounded-lg font-bold text-sm transition-colors shadow-lg"

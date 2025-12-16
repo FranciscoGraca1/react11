@@ -39,12 +39,13 @@ export default function RootLayout({
             <Link href="/tecnologias" className="hover:underline">Tecnologias</Link>
             <Link href="/contador" className="hover:underline font-bold">Contador</Link>
             <Link href="/input" className="hover:underline font-bold">Input & Tasks</Link>
+            <Link href="/paises" className="hover:underline font-bold text-yellow-500">Países</Link>
             <Link href="/produtos" className="hover:text-cyan-400 hover:scale-105 transition-all duration-300 text-white font-bold border-b-2 border-cyan-500 pb-1">
-        DEISIshop
-    </Link>
-    <Link href="/carrinho" className="hover:text-green-400 hover:scale-105 transition-all duration-300 font-bold border-b-2 border-transparent hover:border-green-500 pb-1">
-    Carrinho
-</Link>
+              DEISIshop
+            </Link>
+            <Link href="/carrinho" className="hover:text-green-400 hover:scale-105 transition-all duration-300 font-bold border-b-2 border-transparent hover:border-green-500 pb-1">
+              Carrinho
+            </Link>
           </nav>
         </header>
 
